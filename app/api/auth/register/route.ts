@@ -14,8 +14,7 @@ import bcrypt from "bcrypt";
 
 export async function POST(request: Request) {
   try {
-    const { username, email, password, userType, additionalInfo } =
-      await request.json();
+    const { username, email, password, userType } = await request.json();
 
     // Check if all required fields are provided
     if (!username || !email || !password || !userType) {
