@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 }
 
 // Get all job posts
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const jobs = await prisma.jobPost.findMany({
       include: { createdBy: { select: { email: true, userType: true } } },
