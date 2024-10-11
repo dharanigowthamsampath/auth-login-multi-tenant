@@ -1,3 +1,65 @@
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// datasource db {
+//   provider = "mysql"
+//   url      = env("DATABASE_URL")
+// }
+
+// model User {
+//   id         Int         @id @default(autoincrement())
+//   email      String      @unique
+//   password   String
+//   userType   UserType
+//   Trainer    Trainer?
+//   University University?
+//   Agent      Agent?
+//   JobPost    JobPost[]
+// }
+
+// enum UserType {
+//   UNIVERSITY
+//   AGENT
+//   TRAINER
+// }
+
+// model Trainer {
+//   id         Int    @id @default(autoincrement())
+//   user       User   @relation(fields: [userId], references: [id])
+//   userId     Int    @unique
+//   experience String
+//   domains    String
+// }
+
+// model University {
+//   id          Int    @id @default(autoincrement())
+//   user        User   @relation(fields: [userId], references: [id])
+//   userId      Int    @unique
+//   location    String
+//   collegeType String
+// }
+
+// model Agent {
+//   id              Int    @id @default(autoincrement())
+//   user            User   @relation(fields: [userId], references: [id])
+//   userId          Int    @unique
+//   validationTools String
+// }
+
+// model JobPost {
+//   id          Int      @id @default(autoincrement())
+//   title       String
+//   description String
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   createdBy   User     @relation(fields: [userId], references: [id])
+//   userId      Int
+// }
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,26 +69,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Base User model
 model User {
-  id       Int       @id @default(autoincrement())
-  email    String    @unique
-  password String
-  userType UserType  @default(TRAINER)
-  jobPosts JobPost[]
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Fields for polymorphic relation
+  userType String
+
+  // Relations
+  university University?
+  agent      Agent?
+  trainer    Trainer?
+  jobs       Job[]
+
+  @@map("users")
 }
 
-enum UserType {
-  UNIVERSITY
-  AGENT
-  TRAINER
+// University-specific model
+model University {
+  id              String  @id @default(uuid())
+  user            User    @relation(fields: [userId], references: [id])
+  userId          String  @unique
+  name            String
+  location        String
+  establishedYear Int
+  accreditation   String?
+
+  @@map("universities")
 }
 
-model JobPost {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   User     @relation(fields: [userId], references: [id])
-  userId      Int
+// Agent-specific model
+model Agent {
+  id              String @id @default(uuid())
+  user            User   @relation(fields: [userId], references: [id])
+  userId          String @unique
+  agencyName      String
+  licenseNumber   String @unique
+  specialization  String
+  yearsExperience Int
+
+  @@map("agents")
+}
+
+// Trainer-specific model
+model Trainer {
+  id             String @id @default(uuid())
+  user           User   @relation(fields: [userId], references: [id])
+  userId         String @unique
+  expertise      String
+  certification  String
+  availableHours Int
+  hourlyRate     Float
+
+  @@map("trainers")
+}
+
+// Job model
+model Job {
+  id            String   @id @default(uuid())
+  jobTitle      String
+  datePosted    DateTime @default(now())
+  applicants    Int      @default(0)
+  vacancies     Int
+  location      String
+  durationHours Float
+  remuneration  Float
+  contact       String
+
+  // Relation to User (poster of the job)
+  postedBy   User   @relation(fields: [postedById], references: [id])
+  postedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("jobs")
 }
