@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authMiddleware } from "@/lib/auth";
 
+interface AuthenticatedRequest extends Request {
+  user: {
+    userId: string;
+    email: string;
+    userType: string;
+  };
+}
+
 // Create a new job post
 export const POST = authMiddleware(["AGENT", "UNIVERSITY"])(
   async (request: Request) => {
     try {
-      const user = (request as any).user;
+      const user = (request as AuthenticatedRequest).user;
       const {
         jobTitle,
         vacancies,
@@ -73,7 +81,7 @@ export async function GET() {
 export const PUT = authMiddleware(["AGENT", "UNIVERSITY"])(
   async (request: Request) => {
     try {
-      const user = (request as any).user;
+      const user = (request as AuthenticatedRequest).user;
       const {
         id,
         jobTitle,
@@ -127,7 +135,7 @@ export const PUT = authMiddleware(["AGENT", "UNIVERSITY"])(
 export const DELETE = authMiddleware(["AGENT", "UNIVERSITY"])(
   async (request: Request) => {
     try {
-      const user = (request as any).user;
+      const user = (request as AuthenticatedRequest).user;
       const { id } = await request.json();
 
       if (!id) {
