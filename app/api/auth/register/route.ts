@@ -1,20 +1,25 @@
+// import { NextResponse } from "next/server";
+// import { prisma } from "@/lib/prisma";
+// import bcrypt from "bcrypt";
+
+// // curl commands to test this API:
+// // For TRAINER:
+// // curl -X POST -H "Content-Type: application/json" -d '{"username":"trainer1","email":"trainer1@example.com","password":"password123","userType":"TRAINER","additionalInfo":{"expertise":["Math","Science"],"certification":"Certified Teacher","availableHours":20,"hourlyRate":50}}' http://localhost:3000/api/auth/register
+
+// // For UNIVERSITY:
+// // curl -X POST -H "Content-Type: application/json" -d '{"username":"university1","email":"university1@example.com","password":"password123","userType":"UNIVERSITY","additionalInfo":{"name":"Example University","location":"New York","establishedYear":1900,"accreditation":"Fully Accredited"}}' http://localhost:3000/api/auth/register
+
+// // For AGENT:
+// // curl -X POST -H "Content-Type: application/json" -d '{"username":"agent1","email":"agent1@example.com","password":"password123","userType":"AGENT","additionalInfo":{"agencyName":"Top Recruiters","licenseNumber":"AG12345","specialization":"International Students","yearsExperience":5}}' http://localhost:3000/api/auth/register
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
-// curl commands to test this API:
-// For TRAINER:
-// curl -X POST -H "Content-Type: application/json" -d '{"username":"trainer1","email":"trainer1@example.com","password":"password123","userType":"TRAINER","additionalInfo":{"expertise":["Math","Science"],"certification":"Certified Teacher","availableHours":20,"hourlyRate":50}}' http://localhost:3000/api/auth/register
-
-// For UNIVERSITY:
-// curl -X POST -H "Content-Type: application/json" -d '{"username":"university1","email":"university1@example.com","password":"password123","userType":"UNIVERSITY","additionalInfo":{"name":"Example University","location":"New York","establishedYear":1900,"accreditation":"Fully Accredited"}}' http://localhost:3000/api/auth/register
-
-// For AGENT:
-// curl -X POST -H "Content-Type: application/json" -d '{"username":"agent1","email":"agent1@example.com","password":"password123","userType":"AGENT","additionalInfo":{"agencyName":"Top Recruiters","licenseNumber":"AG12345","specialization":"International Students","yearsExperience":5}}' http://localhost:3000/api/auth/register
-
 export async function POST(request: Request) {
   try {
-    const { username, email, password, userType } = await request.json();
+    const { username, email, password, userType, additionalInfo } =
+      await request.json();
 
     // Check if all required fields are provided
     if (!username || !email || !password || !userType) {
@@ -47,7 +52,7 @@ export async function POST(request: Request) {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
+    // Create the user
     const newUser = await prisma.user.create({
       data: {
         username,
@@ -57,48 +62,48 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create specific user type record
-    // let specificUserData;
-    // switch (userType) {
-    //   case "UNIVERSITY":
-    //     specificUserData = await prisma.university.create({
-    //       data: {
-    //         userId: newUser.id,
-    //         name: additionalInfo.name,
-    //         location: additionalInfo.location,
-    //         establishedYear: additionalInfo.establishedYear,
-    //         accreditation: additionalInfo.accreditation,
-    //       },
-    //     });
-    //     break;
-    //   case "AGENT":
-    //     specificUserData = await prisma.agent.create({
-    //       data: {
-    //         userId: newUser.id,
-    //         agencyName: additionalInfo.agencyName,
-    //         licenseNumber: additionalInfo.licenseNumber,
-    //         specialization: additionalInfo.specialization,
-    //         yearsExperience: additionalInfo.yearsExperience,
-    //       },
-    //     });
-    //     break;
-    //   case "TRAINER":
-    //     specificUserData = await prisma.trainer.create({
-    //       data: {
-    //         userId: newUser.id,
-    //         expertise: Array.isArray(additionalInfo.expertise)
-    //           ? additionalInfo.expertise.join(",")
-    //           : additionalInfo.expertise,
-    //         certification: additionalInfo.certification,
-    //         availableHours: additionalInfo.availableHours,
-    //         hourlyRate: additionalInfo.hourlyRate,
-    //       },
-    //     });
-    //     break;
-    // }
+    // Handle additional info based on user type
+    let specificUserData;
+    switch (userType) {
+      case "UNIVERSITY":
+        specificUserData = await prisma.university.create({
+          data: {
+            userId: newUser.id,
+            name: additionalInfo.name,
+            location: additionalInfo.location,
+            establishedYear: additionalInfo.establishedYear,
+            accreditation: additionalInfo.accreditation,
+          },
+        });
+        break;
+      case "AGENT":
+        specificUserData = await prisma.agent.create({
+          data: {
+            userId: newUser.id,
+            agencyName: additionalInfo.agencyName,
+            licenseNumber: additionalInfo.licenseNumber,
+            specialization: additionalInfo.specialization,
+            yearsExperience: additionalInfo.yearsExperience,
+          },
+        });
+        break;
+      case "TRAINER":
+        specificUserData = await prisma.trainer.create({
+          data: {
+            userId: newUser.id,
+            expertise: Array.isArray(additionalInfo.expertise)
+              ? additionalInfo.expertise.join(",")
+              : additionalInfo.expertise,
+            certification: additionalInfo.certification,
+            availableHours: additionalInfo.availableHours,
+            hourlyRate: additionalInfo.hourlyRate,
+          },
+        });
+        break;
+    }
 
     // If you want to return the created user data, you might want to fetch it again
-    // to include the specific user type data and convert expertise back to an array
+    // to include the specific user type data and convert expertise back to an array if needed
     if (userType === "TRAINER") {
       const createdTrainer = await prisma.trainer.findUnique({
         where: { userId: newUser.id },

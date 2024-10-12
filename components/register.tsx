@@ -1,12 +1,11 @@
-// Import necessary dependencies and components
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,7 +35,6 @@ import {
 } from "@/components/ui/select";
 
 // Define Zod schemas for form validation
-// Base schema for common fields
 const baseSchema = z.object({
   username: z.string().min(2, {
     message: "Username must be at least 2 characters.",
@@ -50,117 +48,115 @@ const baseSchema = z.object({
   userType: z.enum(["UNIVERSITY", "AGENT", "TRAINER"]),
 });
 
-// Extended schema for trainer-specific fields
 const trainerSchema = baseSchema.extend({
-  expertise: z.array(z.string()),
-  certification: z.string(),
-  availableHours: z.number().min(0),
-  hourlyRate: z.number().min(0),
+  expertise: z.string().min(1, "Expertise is required"),
+  certification: z.string().min(1, "Certification is required"),
+  availableHours: z.preprocess(
+    (val) => Number(val),
+    z.number().min(0, "Available hours must be a positive number")
+  ),
+  hourlyRate: z.preprocess(
+    (val) => Number(val),
+    z.number().min(0, "Hourly rate must be a positive number")
+  ),
 });
 
-// Extended schema for agent-specific fields
 const agentSchema = baseSchema.extend({
-  agencyName: z.string(),
-  licenseNumber: z.string(),
-  specialization: z.string(),
-  yearsExperience: z.number().min(0),
+  agencyName: z.string().min(1, "Agency name is required"),
+  licenseNumber: z.string().min(1, "License number is required"),
+  specialization: z.string().min(1, "Specialization is required"),
+  yearsExperience: z.preprocess(
+    (val) => Number(val),
+    z.number().min(0, "Years of experience must be a positive number")
+  ),
 });
 
-// Extended schema for university-specific fields
 const universitySchema = baseSchema.extend({
-  name: z.string(),
-  location: z.string(),
-  establishedYear: z.number().min(1000).max(new Date().getFullYear()),
-  accreditation: z.string(),
+  name: z.string().min(1, "University name is required"),
+  location: z.string().min(1, "Location is required"),
+  establishedYear: z.preprocess(
+    (val) => Number(val),
+    z
+      .number()
+      .min(1000, "Established year must be after 1000")
+      .max(new Date().getFullYear(), "Established year cannot be in the future")
+  ),
+  accreditation: z.string().min(1, "Accreditation is required"),
 });
 
-// Define the form schema type
-type FormSchema = z.infer<
-  typeof trainerSchema | typeof agentSchema | typeof universitySchema
->;
-
-// Main Register component
-export function Register() {
-  // Initialize state variables
-  const [error, setError] = useState("");
+export default function RegisterPage() {
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState(1);
   const router = useRouter();
+  const [userType, setUserType] = useState<
+    "UNIVERSITY" | "AGENT" | "TRAINER" | null
+  >(null);
 
-  // Initialize form using react-hook-form and zod resolver
-  const form = useForm<FormSchema>({
-    resolver: zodResolver(baseSchema),
-    defaultValues: {
-      username: "",
-      email: "",
-      password: "",
-      userType: "TRAINER",
-    },
+  const form = useForm({
+    resolver: zodResolver(
+      userType === "TRAINER"
+        ? trainerSchema
+        : userType === "AGENT"
+        ? agentSchema
+        : userType === "UNIVERSITY"
+        ? universitySchema
+        : baseSchema
+    ),
   });
 
-  // Function to get the appropriate schema based on the current step and user type
-  const getStepSchema = () => {
-    if (step === 1) return baseSchema;
-    switch (form.getValues("userType")) {
-      case "TRAINER":
-        return trainerSchema;
-      case "AGENT":
-        return agentSchema;
-      case "UNIVERSITY":
-        return universitySchema;
-      default:
-        return baseSchema;
-    }
-  };
-
-  // Effect to reset form when step changes
-  useEffect(() => {
-    form.clearErrors();
-    form.reset(form.getValues());
-  }, [step]);
-
-  // Form submission handler
-  const onSubmit = async (values: FormSchema) => {
-    if (step === 1) {
-      setStep(2);
-      return;
-    }
-
+  const onSubmit = async (values: any) => {
     setIsLoading(true);
-    setError("");
+    setError(null);
 
-    const { username, email, password, userType, ...additionalInfo } = values;
+    // Prepare payload based on user type
+    let payload: any = { ...values };
+    if (userType === "TRAINER") {
+      payload.additionalInfo = {
+        expertise: values.expertise,
+        certification: values.certification,
+        availableHours: values.availableHours,
+        hourlyRate: values.hourlyRate,
+      };
+    } else if (userType === "AGENT") {
+      payload.additionalInfo = {
+        agencyName: values.agencyName,
+        licenseNumber: values.licenseNumber,
+        specialization: values.specialization,
+        yearsExperience: values.yearsExperience,
+      };
+    } else if (userType === "UNIVERSITY") {
+      payload.additionalInfo = {
+        name: values.name,
+        location: values.location,
+        establishedYear: values.establishedYear,
+        accreditation: values.accreditation,
+      };
+    }
 
     try {
-      // Send registration request to the server
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          email,
-          password,
-          userType,
-          additionalInfo,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        router.push("login");
-      } else {
+      if (!response.ok) {
         const data = await response.json();
-        setError(data.message || "Registration failed. Please try again.");
+        throw new Error(data.error || "Registration failed");
       }
-    } catch (err) {
-      setError("An error occurred. Please try again.");
+
+      router.push("/login");
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Render the registration form
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="flex justify-center items-center min-h-screen">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Register</CardTitle>
@@ -169,17 +165,87 @@ export function Register() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {step === 1 ? (
-                // Render first step form fields (common fields)
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter username" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Enter password"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="userType"
+                render={({ field }) => (
+                  <FormItem className="mb-4">
+                    <FormLabel>User Type</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        setUserType(
+                          value as "UNIVERSITY" | "AGENT" | "TRAINER"
+                        );
+                        field.onChange(value);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TRAINER">Trainer</SelectItem>
+                        <SelectItem value="AGENT">Agent</SelectItem>
+                        <SelectItem value="UNIVERSITY">University</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {userType === "TRAINER" && (
                 <>
                   <FormField
                     control={form.control}
-                    name="username"
+                    name="expertise"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Username</FormLabel>
+                        <FormLabel>Expertise</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter your username" {...field} />
+                          <Input placeholder="Enter expertise" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -187,12 +253,12 @@ export function Register() {
                   />
                   <FormField
                     control={form.control}
-                    name="email"
+                    name="certification"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>Certification</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter your email" {...field} />
+                          <Input placeholder="Enter certification" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -200,14 +266,14 @@ export function Register() {
                   />
                   <FormField
                     control={form.control}
-                    name="password"
+                    name="availableHours"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Password</FormLabel>
+                        <FormLabel>Available Hours</FormLabel>
                         <FormControl>
                           <Input
-                            type="password"
-                            placeholder="Enter your password"
+                            type="number"
+                            placeholder="Enter available hours"
                             {...field}
                           />
                         </FormControl>
@@ -217,274 +283,156 @@ export function Register() {
                   />
                   <FormField
                     control={form.control}
-                    name="userType"
+                    name="hourlyRate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>User Type</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            form.reset({
-                              ...form.getValues(),
-                              userType: value as
-                                | "UNIVERSITY"
-                                | "AGENT"
-                                | "TRAINER",
-                            });
-                          }}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select user type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="UNIVERSITY">
-                              University
-                            </SelectItem>
-                            <SelectItem value="AGENT">Agent</SelectItem>
-                            <SelectItem value="TRAINER">Trainer</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Hourly Rate</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Enter hourly rate"
+                            {...field}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </>
-              ) : (
-                // Render second step form fields (user type specific fields)
+              )}
+
+              {userType === "AGENT" && (
                 <>
-                  {form.getValues("userType") === "TRAINER" && (
-                    // Render trainer-specific fields
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="expertise"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Expertise</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter your expertise (comma-separated)"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(e.target.value.split(","))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="certification"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Certification</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter your certification"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="availableHours"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Available Hours</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Enter available hours"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="hourlyRate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Hourly Rate</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Enter hourly rate"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-                  {form.getValues("userType") === "AGENT" && (
-                    // Render agent-specific fields
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="agencyName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Agency Name</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter your agency name"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="licenseNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>License Number</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter your license number"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="specialization"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Specialization</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter your specialization"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="yearsExperience"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Years of Experience</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Enter years of experience"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-                  {form.getValues("userType") === "UNIVERSITY" && (
-                    // Render university-specific fields
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>University Name</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter university name"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="location"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Location</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter university location"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="establishedYear"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Established Year</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Enter established year"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="accreditation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Accreditation</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Enter accreditation"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
+                  <FormField
+                    control={form.control}
+                    name="agencyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Agency Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter agency name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="licenseNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>License Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter license number"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="specialization"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Specialization</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter specialization"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="yearsExperience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Years of Experience</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Enter years of experience"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </>
               )}
+
+              {userType === "UNIVERSITY" && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>University Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter university name"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Location</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter location" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="establishedYear"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Established Year</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Enter established year"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="accreditation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Accreditation</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter accreditation" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+
               {error && (
-                // Display error message if there's an error
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Error</AlertTitle>
@@ -492,36 +440,15 @@ export function Register() {
                 </Alert>
               )}
               <div className="flex justify-between w-full">
-                {step === 2 && (
-                  <Button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    className="w-[49%]"
-                    variant="secondary"
-                    disabled={isLoading}
-                  >
-                    Back
-                  </Button>
-                )}
-                <Button
-                  type="submit"
-                  className={step === 2 ? "w-[49%]" : "w-full"}
-                  disabled={isLoading}
-                >
-                  {step === 2
-                    ? isLoading
-                      ? "Registering..."
-                      : "Register"
-                    : isLoading
-                    ? "Loading..."
-                    : "Next"}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Registering..." : "Register"}
                 </Button>
               </div>
             </form>
           </Form>
         </CardContent>
         <CardFooter>
-          <Link href="login" className="text-sm text-blue-600 hover:underline">
+          <Link href="/login" className="text-sm text-blue-600 hover:underline">
             Already have an account? Log in
           </Link>
         </CardFooter>
