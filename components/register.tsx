@@ -109,7 +109,7 @@ export default function RegisterPage() {
     setError(null);
 
     // Prepare payload based on user type
-    let payload: any = { ...values };
+    const payload: any = { ...values };
     if (userType === "TRAINER") {
       payload.additionalInfo = {
         expertise: values.expertise,

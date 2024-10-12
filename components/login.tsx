@@ -105,7 +105,7 @@ export function Login() {
             href="register"
             className="text-sm text-blue-600 hover:underline"
           >
-            Don't have an account? Sign up
+            Don&apos;t have an account? Sign up
           </Link>
         </CardFooter>
       </Card>

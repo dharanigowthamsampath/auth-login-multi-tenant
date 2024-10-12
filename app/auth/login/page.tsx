@@ -1,9 +1,7 @@
 import { Login } from "@/components/login";
 import React from "react";
 
-type Props = {};
-
-const page = (props: Props) => {
+const page = () => {
   return (
     <div>
       <Login />
