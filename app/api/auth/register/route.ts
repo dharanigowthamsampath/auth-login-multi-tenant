@@ -63,44 +63,44 @@ export async function POST(request: Request) {
     });
 
     // Handle additional info based on user type
-    let specificUserData;
-    switch (userType) {
-      case "UNIVERSITY":
-        specificUserData = await prisma.university.create({
-          data: {
-            userId: newUser.id,
-            name: additionalInfo.name,
-            location: additionalInfo.location,
-            establishedYear: additionalInfo.establishedYear,
-            accreditation: additionalInfo.accreditation,
-          },
-        });
-        break;
-      case "AGENT":
-        specificUserData = await prisma.agent.create({
-          data: {
-            userId: newUser.id,
-            agencyName: additionalInfo.agencyName,
-            licenseNumber: additionalInfo.licenseNumber,
-            specialization: additionalInfo.specialization,
-            yearsExperience: additionalInfo.yearsExperience,
-          },
-        });
-        break;
-      case "TRAINER":
-        specificUserData = await prisma.trainer.create({
-          data: {
-            userId: newUser.id,
-            expertise: Array.isArray(additionalInfo.expertise)
-              ? additionalInfo.expertise.join(",")
-              : additionalInfo.expertise,
-            certification: additionalInfo.certification,
-            availableHours: additionalInfo.availableHours,
-            hourlyRate: additionalInfo.hourlyRate,
-          },
-        });
-        break;
-    }
+    // let specificUserData;
+    // switch (userType) {
+    //   case "UNIVERSITY":
+    //     specificUserData = await prisma.university.create({
+    //       data: {
+    //         userId: newUser.id,
+    //         name: additionalInfo.name,
+    //         location: additionalInfo.location,
+    //         establishedYear: additionalInfo.establishedYear,
+    //         accreditation: additionalInfo.accreditation,
+    //       },
+    //     });
+    //     break;
+    //   case "AGENT":
+    //     specificUserData = await prisma.agent.create({
+    //       data: {
+    //         userId: newUser.id,
+    //         agencyName: additionalInfo.agencyName,
+    //         licenseNumber: additionalInfo.licenseNumber,
+    //         specialization: additionalInfo.specialization,
+    //         yearsExperience: additionalInfo.yearsExperience,
+    //       },
+    //     });
+    //     break;
+    //   case "TRAINER":
+    //     specificUserData = await prisma.trainer.create({
+    //       data: {
+    //         userId: newUser.id,
+    //         expertise: Array.isArray(additionalInfo.expertise)
+    //           ? additionalInfo.expertise.join(",")
+    //           : additionalInfo.expertise,
+    //         certification: additionalInfo.certification,
+    //         availableHours: additionalInfo.availableHours,
+    //         hourlyRate: additionalInfo.hourlyRate,
+    //       },
+    //     });
+    //     break;
+    // }
 
     // If you want to return the created user data, you might want to fetch it again
     // to include the specific user type data and convert expertise back to an array if needed
